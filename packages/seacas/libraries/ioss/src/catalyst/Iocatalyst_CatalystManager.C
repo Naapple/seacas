@@ -12,7 +12,6 @@ namespace Iocatalyst {
 
   CatalystManager::CatalystManager() { reset(); }
 
-  CatalystManager::~CatalystManager() {}
 
   void CatalystManager::writeToCatalystLogFile(const Ioss::ParallelUtils   &putils,
                                                const Ioss::PropertyManager &props)
@@ -75,11 +74,17 @@ namespace Iocatalyst {
       }
     }
 
+    if(props.exists(PHACTORI_ZIP)) {
+      catalystProps.catalystPhactoriZip = props.get(PHACTORI_ZIP).get_string();
+    }
+
     if (props.exists(CATALYST_SCRIPT)) {
       catalystProps.catalystPythonFilename = props.get(CATALYST_SCRIPT).get_string();
     }
     else {
-      catalystProps.catalystPythonFilename = this->getCatalystPythonDriverPath();
+      catalystProps.catalystPythonFilename = this->getCatalystPythonDriverHookPath();
+      this->writeCatalystPythonDriverHook(catalystProps, putils);
+      //If we need Phactori Hook deletion, put in destructor. Needs putils.
     }
 
     if (props.exists(CATALYST_SCRIPT_EXTRA_FILE)) {
@@ -262,8 +267,8 @@ namespace Iocatalyst {
       errmsg << "Catalyst pipeline is not a multi-input pipeline";
       IOSS_ERROR(errmsg);
     }
-    const auto name = p.catalystMultiInputPipelineName;
-    for (auto cp : catPipes) {
+    const auto &name = p.catalystMultiInputPipelineName;
+    for (const auto &cp : catPipes) {
       if (cp.second.enableCatalystMultiInputPipeline &&
           cp.second.catalystMultiInputPipelineName == name) {
         canExecute &= cp.second.pipelineState == pWaitExecute;
@@ -280,7 +285,7 @@ namespace Iocatalyst {
       errmsg << "Catalyst pipeline is not a multi-input pipeline";
       IOSS_ERROR(errmsg);
     }
-    const auto name = p.catalystMultiInputPipelineName;
+    const auto &name = p.catalystMultiInputPipelineName;
     for (auto &cp : catPipes) {
       if (cp.second.enableCatalystMultiInputPipeline &&
           cp.second.catalystMultiInputPipelineName == name) {
@@ -318,6 +323,39 @@ namespace Iocatalyst {
     putils.broadcast(code);
     statusCode = code;
 #endif
+  }
+  
+  void CatalystManager::writeCatalystPythonDriverHook(const CatalystProps &p, const Ioss::ParallelUtils &putils)
+  {
+    if (putils.parallel_rank() == 0) {
+      std::fstream phHookFile;
+      phHookFile.open(p.catalystPythonFilename, std::ios::out | std::ios::trunc);
+      if (!phHookFile) {
+        std::ostringstream errmsg;
+        errmsg << "Unable to open Catalyst Phactori Hook file: " << p.catalystPythonFilename << "\n";
+        IOSS_ERROR(errmsg);
+      }
+      else {
+        std::string phHookContents = getPhactoriHookContents(p.catalystPhactoriZip);
+        phHookFile << phHookContents;
+        phHookFile.close();
+      }
+    }
+    putils.barrier();
+  }
+
+  std::string CatalystManager::getPhactoriHookContents(const std::string zip_path)
+  {
+    std::string phDriver = "PhactoriDriver";
+    std::stringstream phHook;
+    phHook << "import sys" << std::endl;
+    phHook << "import os" << std::endl;
+    phHook << "sys.path.append(";
+      phHook << "os.path.normpath(\'";
+      phHook << zip_path << "\')";
+    phHook << ")" << std::endl;
+    phHook << "from " << phDriver << " import *" << std::endl; 
+    return phHook.str();
   }
 
 } // namespace Iocatalyst

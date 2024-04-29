@@ -10,6 +10,7 @@
 #include "iocatalyst_export.h"
 #include <Ioss_ParallelUtils.h>
 #include <catalyst.hpp>
+#include <filesystem>
 
 namespace Iocatalyst {
 
@@ -41,6 +42,9 @@ namespace Iocatalyst {
     inline static const std::string CYCLE                      = "cycle";
     inline static const std::string DATA                       = "data";
     inline static const std::string PHACTORI_JSON_SCRIPT       = "PHACTORI_JSON_SCRIPT";
+    inline static const std::string PHACTORI_ZIP               = "PHACTORI_ZIP";
+    inline static const std::string PHACTORI_ZIP_DEFAULT       = "/todo/create/real/path";
+    inline static const std::string PHACTORI_HOOK_FILENAME     = "phHook.py";
     inline static const std::string PIPELINES                  = "pipelines";
     inline static const std::string FILENAME                   = "filename";
     inline static const std::string FS                         = "/";
@@ -57,7 +61,7 @@ namespace Iocatalyst {
       return instance;
     }
 
-    std::string getCatalystPythonDriverPath() { return "/todo/create/real/path"; }
+    std::string getCatalystPythonDriverHookPath() { return std::string(std::filesystem::current_path() / PHACTORI_HOOK_FILENAME); }
 
     conduit_cpp::Node getInitializeConduit();
 
@@ -77,6 +81,7 @@ namespace Iocatalyst {
         debugLevel                       = 0;
         catalystOutputDirectory          = CATALYST_OUTPUT_DEFAULT;
         catalystInputName                = CATALYST_INPUT_DEFAULT;
+        catalystPhactoriZip              = PHACTORI_ZIP_DEFAULT;
         enableCatalystMultiInputPipeline = false;
         pipelineState                    = pExecute;
         state                            = 0;
@@ -88,6 +93,7 @@ namespace Iocatalyst {
       bool               enableCatalystMultiInputPipeline;
       std::string        catalystMultiInputPipelineName;
       std::string        catalystPythonFilename;
+      std::string        catalystPhactoriZip;
       conduit_cpp::Node  data;
       int                state;
       double             time;
@@ -148,6 +154,9 @@ namespace Iocatalyst {
     void broadCastStatusCode(bool &statusCode, const Ioss::ParallelUtils &putils);
 
     void incrementOutputCounts();
+
+    void writeCatalystPythonDriverHook(const CatalystProps &p, const Ioss::ParallelUtils &putils);
+    std::string getPhactoriHookContents(const std::string zip_path);
 
     CatalystPipelineID                          catalystOutputIDNumber;
     std::map<CatalystPipelineID, CatalystProps> catPipes;

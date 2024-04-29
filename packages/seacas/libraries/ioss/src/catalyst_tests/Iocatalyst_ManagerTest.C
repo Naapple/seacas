@@ -129,7 +129,7 @@ TEST_F(ManagerTest, CATALYST_SCRIPT)
 {
   initialize();
   EXPECT_EQ(catalystProps.catalystPythonFilename,
-            CatalystManager::getInstance().getCatalystPythonDriverPath());
+            CatalystManager::getInstance().getCatalystPythonDriverHookPath());
 
   std::string catalystFileName = "/path/to/file/catalystFile.txt";
   props.add(Ioss::Property(CatalystManager::CATALYST_SCRIPT, catalystFileName));
